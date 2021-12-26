@@ -232,3 +232,25 @@ void add_door(int x, int y)
     void *val = insertItem(get_active_map()->items, XY_KEY(x, y), door);
     if (val) free(val);   
 }
+
+void add_good_fly(int x, int y)
+{
+    MapItem *fly = (MapItem *)malloc(sizeof(MapItem));
+    fly->type = GOOD_FLY;
+    fly->draw = draw_good_fly;
+    fly->walkable = true;
+    fly->data = NULL;
+    void *val = insertItem(get_active_map()->items, XY_KEY(x, y), fly);
+    if (val) free(val);   
+}
+
+void add_bad_fly(int x, int y)
+{
+    MapItem *fly = (MapItem *)malloc(sizeof(MapItem));
+    fly->type = BAD_FLY;
+    fly->draw = draw_bad_fly;
+    fly->walkable = true;
+    fly->data = NULL;
+    void *val = insertItem(get_active_map()->items, XY_KEY(x, y), fly);
+    if (val) free(val);   
+}

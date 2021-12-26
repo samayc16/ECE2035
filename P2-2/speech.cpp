@@ -54,16 +54,19 @@ void draw_speech_line(const char* line, int which)
         draw_speech_bubble();
         while (i < 17 && *line) 
         {
+            inputs = read_inputs();
             uLCD.printf("%c", *line);
-            wait_ms(50);
+            if(inputs.b1) wait_ms(50);
+            else wait_ms(25);
             i++;
             line++;
         }
         uLCD.locate(1, 14);
         while (i < 34 && *line)
         {
+            inputs = read_inputs();
             uLCD.printf("%c", *line);
-            wait_ms(50);
+            if(inputs.b1) wait_ms(50);
             i++;
             line++;   
         }
@@ -78,6 +81,7 @@ void speech_bubble_wait()
     while (inputs.b1 || time_passed < 200) 
     {
         inputs = read_inputs();
+        uLCD.filled_circle(120, 123, 2, waitTime.read_ms() * 127 + 0x888888 % 0x1000000);
         time_passed = waitTime.read_ms();
         inputs = read_inputs();
     }

@@ -53,14 +53,16 @@ typedef struct {
 
 // MapItem types
 // Define more of these!
-#define WALL    0
-#define PLANT   1
-#define NPC     2
-#define GBMAN   3
-#define STAIRS  4
-#define MILK    5
-#define COOKIE  6
-#define DOOR    7
+#define WALL        0
+#define PLANT       1
+#define NPC         2
+#define GBMAN       3
+#define STAIRS      4
+#define MILK        5
+#define COOKIE      6
+#define DOOR        7
+#define GOOD_FLY    8
+#define BAD_FLY     9
 
 /**
  * Initializes the internal structures for all maps. This does not populate
@@ -168,5 +170,9 @@ void add_milk(int x, int y);
 void add_cookie(int x, int y);
 
 void add_door(int x, int y);
+
+void add_good_fly (int x, int y);
+
+void add_bad_fly (int x, int y);
 
 #endif //MAP_H

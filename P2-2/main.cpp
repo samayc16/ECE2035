@@ -8,9 +8,12 @@
 // Functions in this file
 int get_action (GameInputs inputs);
 int update_game (int action);
-void draw_game (int init);
+void draw_game (int init, Timer t);
 void init_main_map ();
 int main ();
+void startgame ();
+void menu ();
+Timer t;
 // Added Helper Functions
 int go_up(int x, int y);
 int go_down(int x, int y);
@@ -19,9 +22,15 @@ int go_left(int x, int y);
 int check_object(int x, int y);
 void init_gingerbread_map();
 
+int candy_count = 0;
+int difficulty = 1;
+int menu_time = 0;
 int omni_mode = 0;
 int start_game = 1;
 int stairs = -1;
+int cookie_used = 0;
+int time_flies = 0;
+int time_remaining = 300;
 
 GameInputs in;
 int action;
@@ -38,9 +47,9 @@ const char *GingerMapLine[5] =     {"Hello! Welcome tothe lair!        ",
                                     ", but rememember,he hates milk!   "};
                                     
 const char *CookieChose[4] =       {"Oh no! You chose the cookie spell!",
-                                    "Cookies make the gingerbread man  "
-                                    "stronger. see if you can find     "
-                                    "another spell!                    "};
+                                    "Cookies make the gingerbread man  ",
+                                    "stronger! See if you can do better",
+                                    "by trying again!                  "};
                                     
 const char *NoKey[1] =             {"Get the key to   unlock the door! "};
 
@@ -103,6 +112,7 @@ int get_action(GameInputs inputs)
 {
     if (!inputs.b2) omni_mode = !omni_mode;
     if (!inputs.b1) return ACTION_BUTTON;
+    if (!inputs.b3) return MENU_BUTTON;
     if (inputs.ax < -0.4) return GO_LEFT;
     if (inputs.ax > 0.4) return GO_RIGHT;
     if (inputs.ay < -0.4) return GO_DOWN;
@@ -149,8 +159,17 @@ int update_game(int action)
         case ACTION_BUTTON:
         if(check_object(Player.px, Player.py)) return FULL_DRAW;
         else break;
-        case MENU_BUTTON:
-        break;
+        case MENU_BUTTON: 
+        if (menu_time % 2 == 0)
+        {
+            menu();
+            return FULL_DRAW;
+        }
+        else 
+        {
+            menu_time++;
+            break;
+        }
         case END_GAME:
         Player.win = 1;
         return GAME_OVER;
@@ -201,19 +220,26 @@ int check_object(int x, int y)
             long_speech(MonsterAliveLine, 8);
             Player.talkNPC = 1;
         }
-        if (Player.defeatMonster == 0 && Player.talkNPC == 1) long_speech(NotFirstNPC, 2);
+        if (Player.defeatMonster == 0 && Player.talkNPC > 0) 
+        {
+            long_speech(NotFirstNPC, 2);
+        }
         if (Player.defeatMonster == 1 && Player.has_key == 0) 
         {
             long_speech(DeadNoKey, 2);
             Player.has_key = 1;
         }
-        if (Player.defeatMonster == 1 && Player.has_key == 1) long_speech(DeadKey, 2);
+        if (Player.defeatMonster == 1 && Player.has_key > 0) 
+        {
+            long_speech(DeadKey, 2);
+        }
         return 1;
     }
     if (COOKIE == northItem  || COOKIE == southItem || COOKIE == eastItem || COOKIE == westItem)
     {
         long_speech(CookieChose, 4);
         map_erase(14, 14);
+        cookie_used = 1;
         return 1;
     }
     if (MILK == northItem  || MILK == southItem || MILK == eastItem || MILK == westItem)
@@ -246,6 +272,111 @@ int check_object(int x, int y)
         }
         return 1;
     }
+    if (BAD_FLY == get_here(x, y)->type)
+    {
+        candy_count++;
+        if (candy_count % 5 == 0)
+        {
+            GameInputs inputs = read_inputs();
+            uLCD.filled_rectangle(0, 0, 127, 127, 0);
+            uLCD.locate(4, 4);
+            uLCD.color(0xFFFFFF);
+            uLCD.printf("Welcome to");
+            uLCD.locate(4, 5);
+            uLCD.printf("the hidden");
+            uLCD.locate(2, 6);
+            uLCD.printf("menu! You have");
+            uLCD.locate(1, 7);
+            uLCD.printf("eaten %d candies!", candy_count);
+            uLCD.locate(1, 10);
+            uLCD.printf("B2 for surprise!");
+            uLCD.locate(1, 11);
+            uLCD.printf("B3 for the key!!");
+            uLCD.locate(1, 14);
+            uLCD.printf("B1 to continue!");
+            while (inputs.b1 || inputs.b2 || inputs.b3)
+            {
+                draw_upper_status(Player.x, Player.y, time_remaining - t.read_ms()/1000 + time_flies, t.read_ms()/1000);
+                uLCD.filled_circle(116, 118, 4, t.read_ms() * 127 + 0x888888 % 0x1000000);
+                inputs = read_inputs();
+                if(!inputs.b1) break;
+                else if(!inputs.b2) 
+                {
+                    cookie_used = true; 
+                    break;
+                }
+                else if(!inputs.b3) 
+                {
+                    Player.has_key = 1; 
+                    break;
+                }
+            }
+            time_flies += 5 * t.read_ms() / 9000;
+        }
+        time_flies -= 5 * t.read_ms() / 9000;
+        map_erase(x, y);
+        int nx =  (t.read_us() - t.read_ms()) % 30 + 1;
+        int ny = (t.read_us() + t.read_ms()) % 30 + 1;
+        while (get_here(nx , ny))
+        {
+            int nx =  (t.read_us() - t.read_ms()) % 30 + 1;
+            int ny = (t.read_us() + t.read_ms()) % 30 + 1;
+        }
+        add_bad_fly(nx, ny);
+        return 1;
+    }
+    if (GOOD_FLY == get_here(x, y)->type)
+    {
+        candy_count++;
+        if (candy_count % 5 == 0)
+        {
+            GameInputs inputs = read_inputs();
+            uLCD.filled_rectangle(0, 0, 127, 127, 0);
+            uLCD.locate(4, 4);
+            uLCD.color(0xFFFFFF);
+            uLCD.printf("Welcome to");
+            uLCD.locate(4, 5);
+            uLCD.printf("the hidden");
+            uLCD.locate(2, 6);
+            uLCD.printf("menu! You have");
+            uLCD.locate(1, 7);
+            uLCD.printf("eaten %d candies!", candy_count);
+            uLCD.locate(1, 10);
+            uLCD.printf("B2 for surprise!");
+            uLCD.locate(1, 11);
+            uLCD.printf("B3 for the key!!");
+            uLCD.locate(1, 14);
+            uLCD.printf("B1 to continue!");
+            while (inputs.b1 || inputs.b2 || inputs.b3)
+            {
+                draw_upper_status(Player.x, Player.y, time_remaining - t.read_ms()/1000 + time_flies, t.read_ms()/1000);
+                uLCD.filled_circle(116, 118, 4, t.read_ms() * 127 + 0x888888 % 0x1000000);
+                inputs = read_inputs();
+                if(!inputs.b1) break;
+                else if(!inputs.b2) 
+                {
+                    cookie_used = true; 
+                    break;
+                }
+                else if(!inputs.b3) 
+                {
+                    Player.has_key = 1; 
+                    break;
+                }
+            }
+        }
+        time_flies += 10;
+        map_erase(x, y);
+        int nx =  (t.read_us() - t.read_ms()) % 30 + 1;
+        int ny = (t.read_us() + t.read_ms()) % 30 + 1;
+        while (get_here(nx , ny))
+        {
+            int nx = (t.read_us() - t.read_ms()) % 30 + 1;
+            int ny = (t.read_us() + t.read_ms()) % 30 + 1;
+        }
+        add_good_fly(nx, ny);
+        return 1;
+    }
     else return 0;
 }
 /**
@@ -254,14 +385,34 @@ int check_object(int x, int y)
  * bars. Unless init is nonzero, this function will optimize drawing by only
  * drawing tiles that have changed from the previous frame.
  */
-void draw_game(int init)
+void draw_game(int init, Timer t)
 {
     if (Player.win == 1)
     {
         uLCD.filled_rectangle(0, 0, 127, 127, 0x000000);
-        uLCD.locate(2,4);
+        uLCD.locate(5,4);
         uLCD.color(0xFFFFFF);
         uLCD.printf("YOU WIN!");
+        uLCD.locate(2,6);
+        uLCD.printf("Press the blue");
+        uLCD.locate(2,7);
+        uLCD.printf("button on mbed");
+        uLCD.locate(4,8);
+        uLCD.printf("to restart");
+        wait(1000000000000000);
+    }
+    if (time_remaining - t.read_ms()/1000 + time_flies < 1 || cookie_used)
+    {
+        uLCD.filled_rectangle(0, 0, 127, 127, 0x000000);
+        uLCD.locate(3,4);
+        uLCD.color(0xFFFFFF);
+        uLCD.printf("YOU LOSE! :(");
+        uLCD.locate(2,6);
+        uLCD.printf("Press the blue");
+        uLCD.locate(2,7);
+        uLCD.printf("button on mbed");
+        uLCD.locate(4,8);
+        uLCD.printf("to restart");
         wait(1000000000000000);
     }
     // Draw game border first
@@ -321,7 +472,16 @@ void draw_game(int init)
     if (stairs == 0) long_speech(GingerMapLine, 5);
     
     // Draw status bars
-    draw_upper_status(Player.x, Player.y);
+    switch (difficulty)
+    {
+        case 1: time_remaining = 300;
+        break;
+        case 2: time_remaining = 200;
+        break;
+        case 3: time_remaining = 100;
+        break;         
+    }
+    draw_upper_status(Player.x, Player.y, time_remaining - t.read_ms()/1000 + time_flies, t.read_ms()/1000);
     draw_lower_status(Player.has_key, Player.defeatMonster);
     
 }
@@ -334,6 +494,9 @@ void draw_game(int init)
  */
 void init_main_map()
 {
+    Timer h; h.start();
+    int x;
+    int y;
     Map *map = set_active_map(0);
     add_npc(8, 5);
     add_stairs(9, 14);
@@ -355,11 +518,32 @@ void init_main_map()
     add_wall(22,              0,              VERTICAL,   6);
     add_wall(30,              0,              VERTICAL,   6);
 
-    for (int i = 23; i < 30; i++)
+    for (int i = 23; i < 30; i++) add_door(i, 5);
+    
+    for (int i = 0; i < 8; i++) 
     {
-        add_door(i, 5);
+        x = (37*i + h.read_ms()) % 30 + 1;
+        y = (43*i - h.read_ms()) % 30 + 1;
+        while (get_here(x, y))
+        {
+            x = (37*i + h.read_ms()) % 30 + 1;
+            y = (43*i - h.read_ms()) % 30 + 1; 
+        }
+        add_good_fly(x, y);
     }
-
+    
+    for (int i = 0; i < 12; i++) 
+    {
+        x = (49*i + h.read_ms()) % 30 + 1;
+        y = (37*i - h.read_ms()) % 30 + 1;
+        while (get_here(x, y))
+        {
+            x = (49*i + h.read_ms()) % 30 + 1;
+            y = (37*i - h.read_ms()) % 30 + 1;   
+        }
+        add_bad_fly(x, y);
+    }
+    
     pc.printf("Door walls done!\r\n");
 
     print_map();
@@ -367,7 +551,14 @@ void init_main_map()
 }
 void init_gingerbread_map()
 {
+    Timer h; h.start();
+    int x;
+    int y;
     Map *map = set_active_map(1);
+    for(int i = map_width() + 2; i < map_area(); i += 37)
+    {
+        add_plant(i / map_width(), i % map_width());
+    }
     add_stairs(9, 14);
     add_gbMan(16, 15);
     add_milk(12, 12);
@@ -376,6 +567,29 @@ void init_gingerbread_map()
     add_wall(0,              map_height() - 1, HORIZONTAL, map_width());
     add_wall(0,              0,              VERTICAL,   map_height());
     add_wall(map_width() - 1,0,              VERTICAL,   map_height());
+    for (int i = 0; i < 8; i++) 
+    {
+        x = (37*i + h.read_ms()) % 30 + 1;
+        y = (43*i - h.read_ms()) % 30 + 1;
+        while (get_here(x, y))
+        {
+            x = (37*i + h.read_ms()) % 30 + 1;
+            y = (43*i - h.read_ms()) % 30 + 1; 
+        }
+        add_good_fly(x, y);
+    }
+    
+    for (int i = 0; i < 12; i++) 
+    {
+        x = (49*i + h.read_ms()) % 30 + 1;
+        y = (37*i - h.read_ms()) % 30 + 1;
+        while (get_here(x, y))
+        {
+            x = (49*i + h.read_ms()) % 30 + 1;
+            y = (37*i - h.read_ms()) % 30 + 1;   
+        }
+        add_bad_fly(x, y);
+    }
     print_map();
 }
 
@@ -400,15 +614,15 @@ int main()
     Player.has_key = 0;
     Player.defeatMonster = 0;
     // Initial drawing
-    draw_game(true);
+    startgame();
+    draw_game(true, t);
     long_speech(EntranceLine, 3);
 
     // Main game loop
     while(1)
     {
         // Timer to measure game update speed
-        Timer t; t.start();
-
+        t.start();
         // Actually do the game update:
         // 1. Read inputs
         in = read_inputs();
@@ -418,10 +632,157 @@ int main()
         update = update_game(action);
         // 3b. Check for game over
         // 4. Draw frame (draw_game)
-        draw_game(update);
+        draw_game(update, t);
         // 5. Frame delay
         t.stop();
         int dt = t.read_ms();
         if (dt < 100) wait_ms(100 - dt);
     }
 }
+
+void startgame()
+{
+    Timer h; h.start();
+    GameInputs inputs = read_inputs();
+    uLCD.filled_rectangle(0, 0, 127, 127, 0);
+    uLCD.locate(4, 4);
+    uLCD.color(0xFFFFFF);
+    uLCD.printf("Welcome to");
+    uLCD.locate(3,5);
+    uLCD.printf("my Christmas");
+    uLCD.locate(3, 6);
+    uLCD.printf("role-playing");
+    uLCD.locate(6, 7);
+    uLCD.printf("game!!");
+    uLCD.locate(1, 8);
+    uLCD.printf("B1 for an action");
+    uLCD.locate(1, 9);
+    uLCD.printf("B2 for omni mode");
+    uLCD.locate(3, 10);
+    uLCD.printf("B3 for menu!");
+    uLCD.locate(3, 14);
+    uLCD.printf("B1 to start!");
+    while (inputs.b1)
+    {
+        uLCD.filled_circle(116, 118, 4, h.read_ms() * 127 + 0x888888 % 0x1000000);
+        inputs = read_inputs();
+    }
+    wait_ms(250);
+    inputs = read_inputs();
+    uLCD.filled_rectangle(0, 0, 127, 127, 0);
+    uLCD.locate(1, 4);
+    uLCD.color(0xFFFFFF);
+    uLCD.printf("Don't run out of");
+    uLCD.locate(1, 5);
+    uLCD.printf("time and be wary");
+    uLCD.locate(1, 13);
+    uLCD.printf("Only some spells");
+    uLCD.locate(3, 14);
+    uLCD.printf("can help you");
+    while (inputs.b1)
+    {
+        uLCD.filled_circle(116, 118, 4, h.read_ms() * 127 + 0x888888 % 0x1000000);
+        inputs = read_inputs();
+    }
+}
+
+void menu()
+{
+    uLCD.filled_rectangle(0, 0, 127, 127, 0);
+    uLCD.color(0xFFFFFF);
+    uLCD.locate(1, 4);
+    uLCD.printf("B1 for an action");
+    uLCD.locate(1, 5);
+    uLCD.printf("B2 for omni mode");
+    uLCD.locate(3, 6);
+    uLCD.printf("B3 for menu!");
+    uLCD.locate(3, 10);
+    uLCD.printf("Difficulty :");
+    uLCD.locate(5, 11);
+    uLCD.printf("Hold  b2");
+    uLCD.locate(5, 12);
+    uLCD.printf("1s: Easy");
+    uLCD.locate(5, 13);
+    uLCD.printf("2s: Medium");
+    uLCD.locate(5, 14);
+    uLCD.printf("3s: Hard");
+    wait_ms(200);
+    GameInputs inputs = read_inputs();
+    while(inputs.b3)
+    {
+        uLCD.filled_circle(64, 64, 4, t.read_ms() * 127 + 0x888888 % 0x1000000);
+        inputs = read_inputs();
+        if (!inputs.b2)
+        {
+            uLCD.filled_circle(64, 64, 4, t.read_ms() * 127 + 0x888888 % 0x1000000);
+            wait_ms(1000);
+            inputs = read_inputs();
+            if (!inputs.b2)
+            {
+                uLCD.filled_circle(64, 64, 4, t.read_ms() * 127 + 0x888888 % 0x1000000);
+                wait_ms(1000);
+                inputs = read_inputs();
+                if (!inputs.b2)
+                {
+                    uLCD.filled_circle(64, 64, 4, t.read_ms() * 127 + 0x888888 % 0x1000000);
+                    if (time_remaining - t.read_ms()/1000 + time_flies < 200)
+                    {
+                        uLCD.filled_rectangle(0, 0, 127, 127, 0);
+                        uLCD.color(0xFFFFFF);
+                        uLCD.locate(1, 4);
+                        uLCD.printf("You do  not have");
+                        uLCD.locate(1, 5);
+                        uLCD.printf("enough  time for");
+                        uLCD.locate(1, 6);
+                        uLCD.printf("this difficulty!");
+                        uLCD.locate(1, 12);
+                        uLCD.printf("Pick another one");
+                        uLCD.locate(1, 13);
+                        uLCD.printf("or keep  playing");
+                        uLCD.locate(3, 14);
+                        uLCD.printf("the game(b3)");
+                        wait_ms(3000);
+                        menu();
+                        break;
+                    }
+                    else difficulty = 3;
+                }
+                else if (time_remaining - t.read_ms()/1000 + time_flies < 100)
+                {
+                    uLCD.filled_rectangle(0, 0, 127, 127, 0);
+                    uLCD.color(0xFFFFFF);
+                    uLCD.locate(1, 4);
+                    uLCD.printf("You do  not have");
+                    uLCD.locate(1, 5);
+                    uLCD.printf("enough  time for");
+                    uLCD.locate(1, 6);
+                    uLCD.printf("this difficulty!");
+                    uLCD.locate(1, 12);
+                    uLCD.printf("Pick another one");
+                    uLCD.locate(1, 13);
+                    uLCD.printf("or keep  playing");
+                    uLCD.locate(3, 14);
+                    uLCD.printf("the game(b3)");
+                    wait_ms(3000);
+                    menu();
+                    break;
+                }
+                else difficulty = 2;  
+            }   
+            else difficulty = 1;
+            uLCD.filled_rectangle(0, 0, 127, 127, 0);
+            uLCD.color(0xFFFFFF);
+            uLCD.locate(1, 4);
+            if (difficulty == 3) uLCD.printf("Difficulty: Hard");
+            if (difficulty == 1) uLCD.printf("Difficulty: Easy");
+            else if (difficulty == 2)
+            {
+                uLCD.locate(0, 4);
+                uLCD.printf("Difficulty: Medium");
+            }
+            wait_ms(1500);
+            menu();
+        }
+    }
+    menu_time++;
+}    

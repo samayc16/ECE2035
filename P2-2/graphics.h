@@ -35,11 +35,13 @@ void draw_stairs(int u, int v);
 void draw_milk(int u, int v);
 void draw_cookie(int u, int v);
 void draw_door(int u, int v);
+void draw_good_fly(int u, int v);
+void draw_bad_fly(int u, int v);
 
 /**
  * Draw the upper status bar.
  */
-void draw_upper_status(int x, int y);
+void draw_upper_status(int x, int y, int time_reamining, int time_spent);
 
 /**
  * Draw the lower status bar.
